@@ -63,6 +63,7 @@ float distanceFromTarget = 7.0;
 Sphere skyboxSphere(20, 20);
 Box boxCollider;
 Sphere sphereCollider(10, 10);
+Cylinder rayModel(10, 10);
 
 // Models complex instances
 Model modelRock;
@@ -170,6 +171,12 @@ std::vector<float> lamp2Orientation = {21.37 + 90, -65.0 + 90};
 double deltaTime;
 double currTime, lastTime;
 
+//variables para salto
+bool isJump = false;
+float GRAVITY = 3.1;
+double tmv = 0.0;
+double startTimeJump = 0.0;
+
 // Colliders
 std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4> > collidersOBB;
 std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4> > collidersSBB;
@@ -257,6 +264,10 @@ void init(int width, int height, std::string strTitle, bool bFullScreen) {
 	sphereCollider.init();
 	sphereCollider.setShader(&shader);
 	sphereCollider.setColor(glm::vec4(1.0, 1.0, 1.0, 1.0));
+
+	rayModel.init();
+	rayModel.setShader(&shader);
+	rayModel.setColor(glm::vec4(1.0));
 
 	modelRock.loadModel("../models/rock/rock.obj");
 	modelRock.setShader(&shaderMulLighting);
@@ -792,6 +803,75 @@ bool processInput(bool continueApplication) {
 		return false;
 	}
 
+	if (glfwJoystickPresent(0)) {
+		std::cout << "Esta conectado el Joystick 0" << std::endl;
+		int numeroAxes, numeroBotones;
+		const float* axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &numeroAxes);
+		std::cout << "Numero de ejer:=>" << numeroAxes << std::endl;
+		std::cout << "Axes[0]=>" << axes[0] << std::endl;
+		std::cout << "Axes[1]=>" << axes[1] << std::endl;
+		std::cout << "Axes[2]=>" << axes[2] << std::endl;
+		std::cout << "Axes[3]=>" << axes[3] << std::endl;
+		std::cout << "Axes[4]=>" << axes[4] << std::endl;
+		std::cout << "Axes[5]=>" << axes[5] << std::endl;
+
+		//codigo para mover al personaje y la camara
+
+		if (fabs(axes[1])> 0.2f) {
+			modelMatrixMayow = glm::translate(modelMatrixMayow, glm::vec3(0, 0, axes[1] * 0.1f));
+			animationIndex = 0;
+		}
+		if (fabs(axes[0]) > 0.2f) {
+			modelMatrixMayow = glm::rotate(modelMatrixMayow, glm::radians(-axes[0] * 0.5f), glm::vec3(0, 1, 0));
+			animationIndex = 0;
+		}
+
+		if (fabs(axes[2]) > 0.2) {
+			camera->mouseMoveCamera(axes[2] * 0.5, 0, deltaTime);
+		}
+
+		if (fabs(axes[3]) > 0.2) {
+			camera->mouseMoveCamera(0, -axes[3] * 0.5, deltaTime);
+		}
+
+		const unsigned char* botones = glfwGetJoystickButtons(GLFW_JOYSTICK_1,&numeroBotones);
+		std::cout << "Numero de Botones:=>" << numeroBotones;
+		//codigo para el salto
+		if (!isJump && botones[0] == GLFW_PRESS) {
+			std::cout << "Se presiona el boton A :=>" << std::endl;
+			isJump = true;
+			startTimeJump= currTime;
+			tmv = 0;
+		}
+		if (botones[1] == GLFW_PRESS)
+			std::cout << "Se presiona el boton B :=>" << std::endl;
+		if (botones[2] == GLFW_PRESS)
+			std::cout << "Se presiona el boton X :=>" << std::endl;
+		if (botones[3] == GLFW_PRESS)
+			std::cout << "Se presiona el boton Y :=>" << std::endl;
+		if (botones[4] == GLFW_PRESS)
+			std::cout << "Se presiona el boton LB :=>" << std::endl;
+		if (botones[5] == GLFW_PRESS)
+			std::cout << "Se presiona el boton RB: =>" << std::endl;
+		if (botones[6] == GLFW_PRESS)
+			std::cout << "Se presiona el boton OPTIONS :=>" << std::endl;
+		if (botones[7] == GLFW_PRESS)
+			std::cout << "Se presiona el boton START :=>" << std::endl;
+		if (botones[8] == GLFW_PRESS)
+			std::cout << "Se presiona el boton  JOYSTICKIZQ:=>" << std::endl;
+		if (botones[9] == GLFW_PRESS)
+			std::cout << "Se presiona el boton JOYSTICKDER :=>" << std::endl;
+		if (botones[10] == GLFW_PRESS)
+			std::cout << "Se presiona el boton CRUZARRIBA :=>" << std::endl;
+		if (botones[11] == GLFW_PRESS)
+			std::cout << "Se presiona el boton CRUZDER :=>" << std::endl;
+		if (botones[12] == GLFW_PRESS)
+			std::cout << "Se presiona el boton CRUZABAJO :=>" << std::endl;
+		if (botones[13] == GLFW_PRESS)
+			std::cout << "Se presiona el boton CRUZIZQ :=>" << std::endl;
+
+
+	}
 	if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
 		camera->mouseMoveCamera(offsetX, 0.0, deltaTime);
 	if(glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
@@ -903,6 +983,13 @@ bool processInput(bool continueApplication) {
 		animationIndex = 0;
 	}
 
+	bool keySpaceStatus = glfwGetKey(window, GLFW_KEY_SPACE)==GLFW_PRESS;
+	if (!isJump && keySpaceStatus) {
+		isJump = true;
+		tmv = 0;
+		startTimeJump = currTime;
+	}
+
 	glfwPollEvents();
 	return continueApplication;
 }
@@ -956,7 +1043,8 @@ void applicationLoop() {
 
 		glm::mat4 projection = glm::perspective(glm::radians(45.0f),
 				(float) screenWidth / (float) screenHeight, 0.01f, 100.0f);
-
+		
+		//CONFIGURACIÓN DE LA CAMARA
 		if(modelSelected == 1){
 			axis = glm::axis(glm::quat_cast(modelMatrixDart));
 			angleTarget = glm::angle(glm::quat_cast(modelMatrixDart));
@@ -1244,11 +1332,33 @@ void applicationLoop() {
 		/*******************************************
 		 * Custom Anim objects obj
 		 *******************************************/
-		modelMatrixMayow[3][1] = terrain.getHeightTerrain(modelMatrixMayow[3][0], modelMatrixMayow[3][2]);
+		//modelMatrixMayow[3][1] = terrain.getHeightTerrain(modelMatrixMayow[3][0], modelMatrixMayow[3][2]);
+		//codigo para hacer el salto
+		modelMatrixMayow[3][1] = -tmv * tmv * GRAVITY + 3.0 * tmv + terrain.getHeightTerrain(modelMatrixMayow[3][0], modelMatrixMayow[3][2]);
+		tmv = currTime - startTimeJump;
+		if (modelMatrixMayow[3][1] < terrain.getHeightTerrain(modelMatrixMayow[3][0], modelMatrixMayow[3][2])) {
+			isJump = false;
+			modelMatrixMayow[3][1] = terrain.getHeightTerrain(modelMatrixMayow[3][0], modelMatrixMayow[3][2]);
+		}
+		//
 		glm::mat4 modelMatrixMayowBody = glm::mat4(modelMatrixMayow);
 		modelMatrixMayowBody = glm::scale(modelMatrixMayowBody, glm::vec3(0.021, 0.021, 0.021));
 		mayowModelAnimate.setAnimationIndex(animationIndex);
 		mayowModelAnimate.render(modelMatrixMayowBody);
+
+
+		//Model Ray in mayow direction
+		glm::mat4 modelMatrixRay = glm::mat4(modelMatrixMayow);
+		modelMatrixRay = glm::translate(modelMatrixRay, glm::vec3(0.0, 1.0, 0.0));
+		glm::vec3 rayDirection = glm::normalize(glm::vec3(modelMatrixMayow[2]));
+		glm::vec3 origenRayo = glm::vec3(modelMatrixRay[3]);
+		glm::vec3 targetRayo = origenRayo + 10.0f * rayDirection;
+		glm::vec3 puntoMedio = origenRayo + 5.0f * rayDirection;
+		modelMatrixRay[3] = glm::vec4(puntoMedio, 1.0f);
+		modelMatrixRay = glm::rotate(modelMatrixRay, glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
+		modelMatrixRay = glm::scale(modelMatrixRay, glm::vec3(0.1, 10.0, 0.1));
+		rayModel.render(modelMatrixRay);
+
 
 		/*******************************************
 		 * Skybox
@@ -1297,6 +1407,39 @@ void applicationLoop() {
 		aircraftCollider.e = modelAircraft.getObb().e * glm::vec3(1.0, 1.0, 1.0);
 		addOrUpdateColliders(collidersOBB, "aircraft", aircraftCollider, modelMatrixAircraft);
 
+		//collider de la roca
+		glm::mat4 modelMatrixColliderRock = glm::mat4(matrixModelRock);
+		AbstractModel::SBB rockCollider;
+		modelMatrixColliderRock = glm::scale(modelMatrixColliderRock, glm::vec3(1.0, 1.0, 1.0));
+		modelMatrixColliderRock = glm::translate(modelMatrixColliderRock,modelRock.getSbb().c);
+		rockCollider.c = glm::vec3(modelMatrixColliderRock[3]);
+		rockCollider.ratio = modelRock.getSbb().ratio * 1.0;
+		addOrUpdateColliders(collidersSBB,"rock",rockCollider,matrixModelRock);
+
+		//collider lambo
+		AbstractModel::OBB lamboCollider;
+		glm::mat4 modelMatrixColliderLambo = glm::mat4(modelMatrixLambo);
+		modelMatrixColliderLambo[3][1] = terrain.getHeightTerrain(modelMatrixColliderLambo[3][0],modelMatrixColliderLambo[3][2]);
+		lamboCollider.u = glm::quat_cast(modelMatrixColliderLambo);
+		modelMatrixColliderLambo = glm::scale(modelMatrixColliderLambo, glm::vec3(1.3f));
+		modelMatrixColliderLambo = glm::translate(modelMatrixColliderLambo, modelLambo.getObb().c);
+		lamboCollider.c = glm::vec3(modelMatrixColliderLambo[3]);
+		lamboCollider.e = modelLambo.getObb().e * 1.3f;
+		addOrUpdateColliders(collidersOBB, "lambo", lamboCollider, modelMatrixLambo);
+
+		//collider Mayow
+		AbstractModel::OBB mayowCollider;
+		glm::mat4 modelMatrixColliderMayow = glm::mat4(modelMatrixMayow);
+		modelMatrixColliderMayow = glm::rotate(modelMatrixColliderMayow, glm::radians(-90.0f), glm::vec3(1.0,0.0,0.0));
+		mayowCollider.u = glm::quat_cast(modelMatrixColliderMayow);
+		modelMatrixColliderMayow = glm::scale(modelMatrixColliderMayow, glm::vec3(0.021f));
+		modelMatrixColliderMayow = glm::translate(modelMatrixColliderMayow, mayowModelAnimate.getObb().c);
+		mayowCollider.c = glm::vec3(modelMatrixColliderMayow[3]);
+		mayowCollider.e = mayowModelAnimate.getObb().e * 0.021f *0.75f;
+		addOrUpdateColliders(collidersOBB,"mayow",mayowCollider,modelMatrixMayow);
+
+	
+
 		// Lamps1 colliders
 		for (int i = 0; i < lamp1Position.size(); i++){
 			AbstractModel::OBB lampCollider;
@@ -1313,29 +1456,111 @@ void applicationLoop() {
 			addOrUpdateColliders(collidersOBB, "lamp1-" + std::to_string(i), lampCollider, modelMatrixColliderLamp);
 		}
 
-		/*******************************************
-		 * Render de colliders
-		 *******************************************/
-		for (std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4> >::iterator it =
-				collidersOBB.begin(); it != collidersOBB.end(); it++) {
-			glm::mat4 matrixCollider = glm::mat4(1.0);
-			matrixCollider = glm::translate(matrixCollider, std::get<0>(it->second).c);
-			matrixCollider = matrixCollider * glm::mat4(std::get<0>(it->second).u);
-			matrixCollider = glm::scale(matrixCollider, std::get<0>(it->second).e * 2.0f);
-			boxCollider.setColor(glm::vec4(1.0, 1.0, 1.0, 1.0));
-			boxCollider.enableWireMode();
-			boxCollider.render(matrixCollider);
+		//lampsCollider2
+		for (int i = 0; i < lamp2Position.size(); i++) {
+			AbstractModel::OBB lamp2Collider;
+			glm::mat4 modelMatrixColliderLamp = glm::mat4(1.0);
+			modelMatrixColliderLamp = glm::translate(modelMatrixColliderLamp,lamp2Position[i]);
+			modelMatrixColliderLamp = glm::rotate(modelMatrixColliderLamp, glm::radians(lamp2Orientation[i]), glm::vec3(0,1,0));
+			lamp2Collider.u = glm::quat_cast(modelMatrixColliderLamp);
+			modelMatrixColliderLamp = glm::scale(modelMatrixColliderLamp, glm::vec3(1.0,1.0,1.0));
+			modelMatrixColliderLamp = glm::translate(modelMatrixColliderLamp,modelLampPost2.getObb().c);
+			lamp2Collider.c = glm::vec3(modelMatrixColliderLamp[3]);
+			lamp2Collider.e = modelLampPost2.getObb().e * 1.0f;
+			addOrUpdateColliders(collidersOBB,"lamp2." + std::to_string(i),lamp2Collider,modelMatrixColliderLamp);
 		}
 
-		for (std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4> >::iterator it =
-				collidersSBB.begin(); it != collidersSBB.end(); it++) {
-			glm::mat4 matrixCollider = glm::mat4(1.0);
-			matrixCollider = glm::translate(matrixCollider, std::get<0>(it->second).c);
-			matrixCollider = glm::scale(matrixCollider, glm::vec3(std::get<0>(it->second).ratio * 2.0f));
-			sphereCollider.setColor(glm::vec4(1.0, 1.0, 1.0, 1.0));
-			sphereCollider.enableWireMode();
-			sphereCollider.render(matrixCollider);
+		for (std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4>>::iterator it =
+			collidersSBB.begin(); it != collidersSBB.end(); it++) {
+			float t = 0;
+			if(raySphereIntersect(origenRayo,targetRayo,rayDirection,std::get<0>(it->second),t))
+				std::cout << "Hay colision con : " << it->first << std::endl;
 		}
+
+		for (std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4>>::iterator it = collidersSBB.begin(); it != collidersSBB.end(); it++) {
+			bool isCollision = false;
+			for (std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4>>::iterator jt = collidersSBB.begin(); jt != collidersSBB.end() && !isCollision; jt++) {
+				if (it != jt && testSphereSphereIntersection(std::get<0>(it->second), std::get<0>(jt->second))) {
+					std::cout << "Existe collision entre: " << it->first << "y" << jt->first << std::endl;
+					isCollision = true;
+
+				}
+
+				addOrUpdateCollisionDetection(collisionDetection, it->first, isCollision);
+			}
+		}
+
+			for (std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4>>::iterator it = collidersOBB.begin(); it != collidersOBB.end(); it++) {
+				bool isCollision = false;
+				for (std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4>>::iterator jt = collidersOBB.begin(); jt != collidersOBB.end() && !isCollision; jt++) {
+					if (it != jt && testOBBOBB(std::get<0>(it->second), std::get<0>(jt->second))) {
+						std::cout << "Existe collision entre: " << it->first << "y" << jt->first << std::endl;
+						isCollision = true;
+
+					}
+				}
+				addOrUpdateCollisionDetection(collisionDetection, it->first, isCollision);
+			}
+
+			for (std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4>>::iterator it = collidersOBB.begin(); it != collidersOBB.end(); it++) {
+				bool isCollision = false;
+				for (std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4>>::iterator jt = collidersSBB.begin(); jt != collidersSBB.end(); jt++) {
+					if (testSphereOBox(std::get<0>(jt->second), std::get<0>(it->second))) {
+						std::cout << "Existe collision entre: " << jt->first << "y" << it->first << std::endl;
+						std::cout << "Existe collision entre: " << it->first << "y" << jt->first << std::endl;
+						isCollision = true;
+						addOrUpdateCollisionDetection(collisionDetection, jt->first, true);
+					}
+				}
+				addOrUpdateCollisionDetection(collisionDetection, it->first, isCollision);
+			}
+
+			std::map<std::string, bool >::iterator it;
+			for (it = collisionDetection.begin(); it != collisionDetection.end(); it++) {
+				std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4>>::iterator modeloBuscadoOBB = collidersOBB.find(it->first);
+				std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4>>::iterator modeloBuscadoSBB = collidersSBB.find(it->first);
+				if (modeloBuscadoSBB != collidersSBB.end()) {
+					if (!it->second) {
+						addOrUpdateColliders(collidersSBB, it->first);
+					}
+				}
+				if (modeloBuscadoOBB != collidersOBB.end()) {
+					if (!it->second) {
+						addOrUpdateColliders(collidersOBB, it->first);
+					}
+					else {
+						if (modeloBuscadoOBB->first.compare("mayow") == 0) {
+							modelMatrixMayow = std::get<1>(modeloBuscadoOBB->second);
+						}
+					}
+				}
+
+			}
+
+			/*******************************************
+			 * Render de colliders
+			 *******************************************/
+			for (std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4> >::iterator it =
+				collidersOBB.begin(); it != collidersOBB.end(); it++) {
+				glm::mat4 matrixCollider = glm::mat4(1.0);
+				matrixCollider = glm::translate(matrixCollider, std::get<0>(it->second).c);
+				matrixCollider = matrixCollider * glm::mat4(std::get<0>(it->second).u);
+				matrixCollider = glm::scale(matrixCollider, std::get<0>(it->second).e * 2.0f);
+				boxCollider.setColor(glm::vec4(1.0, 1.0, 1.0, 1.0));
+				boxCollider.enableWireMode();
+				boxCollider.render(matrixCollider);
+			}
+
+			for (std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4> >::iterator it =
+				collidersSBB.begin(); it != collidersSBB.end(); it++) {
+				glm::mat4 matrixCollider = glm::mat4(1.0);
+				matrixCollider = glm::translate(matrixCollider, std::get<0>(it->second).c);
+				matrixCollider = glm::scale(matrixCollider, glm::vec3(std::get<0>(it->second).ratio * 2.0f));
+				sphereCollider.setColor(glm::vec4(1.0, 1.0, 1.0, 1.0));
+				sphereCollider.enableWireMode();
+				sphereCollider.render(matrixCollider);
+			}
+		
 
 		// Esto es para ilustrar la transformacion inversa de los coliders
 		/*glm::vec3 cinv = glm::inverse(mayowCollider.u) * glm::vec4(rockCollider.c, 1.0);
