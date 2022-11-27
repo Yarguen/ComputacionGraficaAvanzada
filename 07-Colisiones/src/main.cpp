@@ -1477,6 +1477,11 @@ void applicationLoop() {
 				std::cout << "Hay colision con : " << it->first << std::endl;
 		}
 
+		for (std::map<std::string, std::tuple<AbstractModel::OBB, glm::mat4, glm::mat4 >>::iterator it = collidersOBB.begin(); it != collidersOBB.end(); it++) {
+			if (rayOBBIntersect(origenRayo, targetRayo, std::get<0>(it->second)))
+				std::cout << "Hay colision el rayo con:" << it->first << std::endl;
+		}
+
 		for (std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4>>::iterator it = collidersSBB.begin(); it != collidersSBB.end(); it++) {
 			bool isCollision = false;
 			for (std::map<std::string, std::tuple<AbstractModel::SBB, glm::mat4, glm::mat4>>::iterator jt = collidersSBB.begin(); jt != collidersSBB.end() && !isCollision; jt++) {
